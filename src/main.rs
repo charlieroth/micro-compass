@@ -9,6 +9,7 @@ use embassy_time::Delay;
 use embedded_hal_async::delay::DelayNs;
 use hal::twim;
 use lsm303agr::Lsm303agr;
+use micromath::F32Ext;
 use panic_probe as _;
 
 hal::bind_interrupts!(struct Irqs {
@@ -65,32 +66,69 @@ async fn main(_spawner: Spawner) {
 
     loop {
         // Read accelerometer data
-        if sensor.accel_status().await.unwrap().xyz_new_data() {
+        let (accel_x, accel_y, accel_z) = if sensor.accel_status().await.unwrap().xyz_new_data() {
             let accel = sensor.acceleration().await.unwrap();
-            info!(
-                "Acceleration: ({}, {}, {})",
-                accel.x_mg(),
-                accel.y_mg(),
-                accel.z_mg()
-            );
+            (
+                accel.x_mg() as f32,
+                accel.y_mg() as f32,
+                accel.z_mg() as f32,
+            )
         } else {
             warn!("No new accelerometer data available");
-        }
+            continue;
+        };
 
         // Read magnetometer data
-        if sensor.mag_status().await.unwrap().xyz_new_data() {
+        let (mag_x, mag_y, mag_z) = if sensor.mag_status().await.unwrap().xyz_new_data() {
             let data = sensor.magnetic_field().await.unwrap();
-            info!(
-                "magnetic field: ({}, {}, {})",
-                data.x_nt(),
-                data.y_nt(),
-                data.z_nt()
-            );
+            (data.x_nt() as f32, data.y_nt() as f32, data.z_nt() as f32)
         } else {
             warn!("No new magnetometer data available");
-        }
+            continue;
+        };
+
+        // Compute tilt compensation
+        let heading = compute_heading(accel_x, accel_y, accel_z, mag_x, mag_y, mag_z);
+        info!(
+            "Heading: {}.{:02}°",
+            heading as i32,
+            (heading.fract() * 100.0) as i32
+        );
 
         // Delay before next read
         Delay.delay_ms(200).await;
     }
+}
+
+fn compute_heading(
+    accel_x: f32,
+    accel_y: f32,
+    accel_z: f32,
+    mag_x: f32,
+    mag_y: f32,
+    mag_z: f32,
+) -> f32 {
+    // Normalize accelerometer values
+    let accel_norm = (accel_x * accel_x + accel_y * accel_y + accel_z * accel_z).sqrt();
+    let ax = accel_x / accel_norm;
+    let ay = accel_y / accel_norm;
+    let az = accel_z / accel_norm;
+
+    // Compute pitch and roll angles
+    let pitch = (-ax).asin();
+    let roll = ay.atan2(az);
+
+    // Tilt compensation
+    let mag_xh = mag_x * roll.cos() + mag_y * roll.sin() * pitch.sin() - mag_z * pitch.cos();
+    let mag_yh = mag_y * pitch.cos() + mag_z * pitch.sin();
+
+    // Comput heading using atan2
+    let mut heading = mag_yh.atan2(mag_xh).to_degrees();
+
+    // Convert range from -180 to 180 into 0 to 360
+    if heading < 0.0 {
+        heading += 360.0;
+    }
+
+    heading
 }
