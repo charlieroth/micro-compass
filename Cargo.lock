@@ -559,6 +559,8 @@ dependencies = [
  "embassy-nrf",
  "embassy-sync",
  "embassy-time",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
  "lsm303agr",
  "micromath",
  "panic-probe",

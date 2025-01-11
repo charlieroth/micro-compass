@@ -2,6 +2,7 @@
 name = "micro-compass"
 version = "0.1.0"
 edition = "2021"
+required-features = ["async"]
 
 [dependencies]
 lsm303agr = { version = "1.1.0", features = ["async"] }
@@ -29,3 +30,5 @@ embassy-futures = { version = "0.1.1", features = ["defmt"] }
 embassy-sync = { version = "0.6.1", features = ["defmt"] }
 panic-probe = { version = "0.3.2", features = ["print-defmt"] }
 micromath = "2.1.0"
+embedded-hal-async = "1.0.0"
+embedded-hal = "1.0.0"
