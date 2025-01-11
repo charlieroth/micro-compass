@@ -7,7 +7,7 @@ use embassy_executor::Spawner;
 use embassy_nrf::{self as hal, twim::Twim};
 use embassy_time::Delay;
 use embedded_hal_async::delay::DelayNs;
-use hal::twim;
+use hal::{gpio, twim};
 use lsm303agr::Lsm303agr;
 use micromath::F32Ext;
 use panic_probe as _;
@@ -25,6 +25,23 @@ async fn main(_spawner: Spawner) {
     // Configure I2C using TWIM
     let config = twim::Config::default();
     let twim0 = Twim::new(dp.TWISPI0, Irqs, dp.P0_16, dp.P0_08, config);
+
+    // Initialize GPIO for LED Matrix (rows & cols)
+    let mut rows = [
+        gpio::Output::new(dp.P0_21, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P0_22, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P0_15, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P0_24, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P0_19, gpio::Level::Low, gpio::OutputDrive::Standard),
+    ];
+
+    let mut cols = [
+        gpio::Output::new(dp.P0_28, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P0_11, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P0_31, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P1_05, gpio::Level::Low, gpio::OutputDrive::Standard),
+        gpio::Output::new(dp.P0_30, gpio::Level::Low, gpio::OutputDrive::Standard),
+    ];
 
     // Initialize LSM303AGR
     let mut sensor = Lsm303agr::new_with_i2c(twim0);
@@ -96,9 +113,10 @@ async fn main(_spawner: Spawner) {
             (heading.fract() * 100.0) as i32,
             cardinal_direction
         );
+        display_direction_on_led(&mut rows, &mut cols, cardinal_direction).await;
 
         // Delay before next read
-        Delay.delay_ms(200).await;
+        Delay.delay_ms(100).await;
     }
 }
 
@@ -135,17 +153,49 @@ fn compute_heading(
     heading
 }
 
-/// Map heading to cardinal directions (N, NE, E, SE, S, SW, W, NW)
+/// Map heading to the four main cardinal directions (N, E, S, W)
 fn get_cardinal_direction(heading: f32) -> &'static str {
     match heading {
-        h if h >= 337.5 || h < 22.5 => "N",
-        h if h >= 22.5 && h < 67.5 => "NE",
-        h if h >= 67.5 && h < 112.5 => "E",
-        h if h >= 112.5 && h < 157.5 => "SE",
-        h if h >= 157.5 && h < 202.5 => "S",
-        h if h >= 202.5 && h < 247.5 => "SW",
-        h if h >= 247.5 && h < 292.5 => "W",
-        h if h >= 292.5 && h < 337.5 => "NW",
-        _ => "?",
+        h if h >= 315.0 || h < 45.0 => "N",
+        h if h >= 45.0 && h < 135.0 => "E",
+        h if h >= 135.0 && h < 225.0 => "S",
+        h if h >= 225.0 && h < 315.0 => "W",
+        _ => "?", // Fallback (should never happen)
     }
+}
+
+/// Display an arrow on the LED matrix for N, E, S, W
+async fn display_direction_on_led(
+    rows: &mut [gpio::Output<'_>; 5],
+    cols: &mut [gpio::Output<'_>; 5],
+    direction: &str,
+) {
+    let arrow = match direction {
+        // North: Arrow pointing up
+        "N" => [(0, 2), (1, 1), (1, 2), (1, 3), (2, 2), (3, 2), (4, 2)],
+        // South: Arrow pointing down
+        "S" => [(0, 2), (1, 2), (2, 2), (3, 1), (3, 2), (3, 3), (4, 2)],
+        // East: Arrow pointing right
+        "E" => [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (1, 3), (3, 3)],
+        // West: Arrow pointing left
+        "W" => [(2, 0), (1, 1), (3, 1), (2, 1), (2, 2), (2, 3), (2, 4)],
+        _ => [(2, 2), (2, 2), (2, 2), (2, 2), (2, 2), (2, 2), (2, 2)], // Default center dot
+    };
+
+    // Turn off all LEDs before updating
+    for row in rows.iter_mut() {
+        row.set_low();
+    }
+    for col in cols.iter_mut() {
+        col.set_low();
+    }
+
+    // Light up the LEDs based on the selected pattern
+    for &(row, col) in arrow.iter() {
+        rows[row].set_high();
+        cols[col].set_high();
+    }
+
+    // Small delay for visibility
+    Delay.delay_ms(100).await;
 }
