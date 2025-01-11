@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+lsm303agr = { version = "1.1.0", features = ["async"] }
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = { version = "0.7.5" }
 defmt = { version = "0.3.10" }
@@ -27,3 +28,4 @@ embassy-time = { version = "0.4.0", features = [
 embassy-futures = { version = "0.1.1", features = ["defmt"] }
 embassy-sync = { version = "0.6.1", features = ["defmt"] }
 panic-probe = { version = "0.3.2", features = ["print-defmt"] }
+micromath = "2.1.0"
