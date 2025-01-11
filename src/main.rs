@@ -89,10 +89,12 @@ async fn main(_spawner: Spawner) {
 
         // Compute tilt compensation
         let heading = compute_heading(accel_x, accel_y, accel_z, mag_x, mag_y, mag_z);
+        let cardinal_direction = get_cardinal_direction(heading);
         info!(
-            "Heading: {}.{:02}°",
+            "Heading: {}.{:02}° ({})",
             heading as i32,
-            (heading.fract() * 100.0) as i32
+            (heading.fract() * 100.0) as i32,
+            cardinal_direction
         );
 
         // Delay before next read
@@ -131,4 +133,19 @@ fn compute_heading(
     }
 
     heading
+}
+
+/// Map heading to cardinal directions (N, NE, E, SE, S, SW, W, NW)
+fn get_cardinal_direction(heading: f32) -> &'static str {
+    match heading {
+        h if h >= 337.5 || h < 22.5 => "N",
+        h if h >= 22.5 && h < 67.5 => "NE",
+        h if h >= 67.5 && h < 112.5 => "E",
+        h if h >= 112.5 && h < 157.5 => "SE",
+        h if h >= 157.5 && h < 202.5 => "S",
+        h if h >= 202.5 && h < 247.5 => "SW",
+        h if h >= 247.5 && h < 292.5 => "W",
+        h if h >= 292.5 && h < 337.5 => "NW",
+        _ => "?",
+    }
 }
