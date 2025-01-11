@@ -1,6 +1,29 @@
 [package]
-name = "microcompass"
+name = "micro-compass"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = { version = "0.7.5" }
+defmt = { version = "0.3.10" }
+defmt-rtt = { version = "0.4.1" }
+embassy-executor = { version = "0.7.0", features = [
+    "arch-cortex-m",   # use the cortex-m specific features
+    "defmt",           # enable defmt logging
+    "executor-thread", # enable the thread-mode executor, using WFE/SEV ni Cortex-M
+] }
+embassy-nrf = { version = "0.3.1", features = [
+    "defmt",
+    "gpiote",
+    "nrf52833",
+    "time",
+    "time-driver-rtc1",
+] }
+embassy-time = { version = "0.4.0", features = [
+    "defmt",
+    "defmt-timestamp-uptime",
+] }
+embassy-futures = { version = "0.1.1", features = ["defmt"] }
+embassy-sync = { version = "0.6.1", features = ["defmt"] }
+panic-probe = { version = "0.3.2", features = ["print-defmt"] }
